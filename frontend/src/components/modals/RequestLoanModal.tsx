@@ -228,11 +228,10 @@ export const RequestLoanModal: React.FC<RequestLoanModalProps> = ({
               <div className="space-y-1">
                 <Input
                   type="number"
-                  min={1}
                   max={selectedAsset?.quantity || 1}
                   placeholder="Enter token amount"
                   onChange={(e) => {
-                    const qty = parseInt(e.target.value || '0');
+                    const qty = parseFloat(e.target.value || '0');
                     setQuantity(qty);
                     const loan = qty * (selectedAsset?.unitPrice || 0) * 0.7;
                     form.setFieldsValue({ amount: loan.toFixed(2) });
