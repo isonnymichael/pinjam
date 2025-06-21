@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Form, Input, Button, Select, Row, Col, Divider, Checkbox, Typography, Spin, notification } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { useActiveAccount } from 'thirdweb/react'
-import { fetchNFTs } from '../../lib/api'; 
+import { fetchTokens } from '../../lib/api'; 
 
 const { Text } = Typography;
 
@@ -72,20 +72,38 @@ export const RequestLoanModal: React.FC<RequestLoanModalProps> = ({
       }
 
       setLoading(true);
-      const data = await fetchNFTs(account?.address);
-      const items = data.items || [];
-      const formatted = items.map((item: any, idx: number) => {
-        const qty = parseInt(item.value || '1');
-        const price = parseFloat(item.token?.exchange_rate || '0.99');
-        return {
-          id: item.id || `${idx}`,
-          name: item.metadata?.name || 'Unnamed NFT',
-          image: item.image_url || 'https://placehold.co/40x40?text=NFT',
-          quantity: qty,
-          unitPrice: price,
-          value: qty * price
-        };
-      });
+      const data = await fetchTokens(account?.address);
+      const items = data.walletTokenBalanceInfoArr || [];
+      const formatted = items
+        .filter((item: any) => {
+          if (item.token?.address === '0x0000000000000000000000000000000000000000') return false;
+
+          if (!item.token?.priceUSD) return false;
+
+          if (!item.holdings?.tokenBalance) return false;
+
+          if(item.token?.tokenType !== 'erc20') return false;
+
+          return true;
+        })
+        .map((item: any, idx: number) => {
+          const qty = parseFloat(item.holdings.tokenBalance);
+          const price = parseFloat(item.token.priceUSD);
+          
+          // 2. Use placeholder if image URL is not https
+          const image = item.token.imageSmallUrl?.startsWith('https')
+            ? item.token.imageSmallUrl
+            : 'https://placehold.co/40x40?text=RWA';
+
+          return {
+            id: item.token.address || `${idx}`,
+            name: item.token.name,
+            image: image,
+            quantity: qty,
+            unitPrice: parseFloat(price.toFixed(3)), // 5. Use 3 decimal places
+            value: parseFloat((qty * price).toFixed(3)),
+          };
+        });
 
       setRwaList(formatted);
     } catch (err) {

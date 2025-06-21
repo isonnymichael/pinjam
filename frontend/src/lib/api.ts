@@ -1,10 +1,10 @@
 import axios from 'axios'
 
-const BASE_URL = '/api/conduit/api/v2/addresses';
+const BASE_URL = '/api/plume-api';
 
-export async function fetchNFTs(address: string) {
+export async function fetchTokens(address: string) {
   try {
-    const url = `${BASE_URL}/${address}/nft?type=ERC-721%2CERC-404%2CERC-1155`
+    const url = `${BASE_URL}/wallet-balance?walletAddress=${address}`
     const response = await axios.get(url)
     return response.data
   } catch (error) {

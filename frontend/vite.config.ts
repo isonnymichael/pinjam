@@ -7,10 +7,10 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     proxy: {
-      '/api/conduit': {
-        target: 'https://explorer-plume-testnet-1.t.conduit.xyz',
+      '/api/plume-api': {
+        target: 'https://portal-api.plume.org',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/conduit/, '')
+        rewrite: (path) => path.replace(/^\/api\/plume-api/, '/api/v1'),
       }
     }
   }
