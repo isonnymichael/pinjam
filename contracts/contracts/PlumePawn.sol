@@ -189,7 +189,7 @@ contract PlumePawn is Ownable, ReentrancyGuard {
         return deposit.unclaimedReward + additionalReward;
     }
 
-    function requestLoan(address collateralToken, uint256 collateralAmount, uint256 duration) external nonReentrant {
+    function requestLoan(address collateralToken, uint256 collateralAmount, uint256 loanAmount, uint256 duration) external nonReentrant {
         require(collateralAmount > 0, "Invalid collateral amount");
         require(collateralToken != address(0), "Invalid token");
 
@@ -197,7 +197,6 @@ contract PlumePawn is Ownable, ReentrancyGuard {
         require(token.transferFrom(msg.sender, address(this), collateralAmount), "Collateral transfer failed");
 
         uint256 interest = getInterestRate(duration);
-        uint256 loanAmount = (collateralAmount * LTV) / 100;
         require(totalLiquidity >= loanAmount, "Insufficient liquidity");
 
         uint256 repayAmount = loanAmount + ((loanAmount * interest) / 100);
