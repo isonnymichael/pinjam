@@ -1,11 +1,11 @@
 import { getContract, readContract } from "thirdweb";
-import { plumeTestnet } from '../lib/chain';
+import { plumeMainnet } from '../lib/chain';
 import { thirdWebClient } from '../lib/client';
 
 export const plumePawnContract = getContract({
     client: thirdWebClient,
     address: import.meta.env.VITE_PLUME_PAWN_CONTRACT,
-    chain: plumeTestnet,
+    chain: plumeMainnet,
 });
 
 export async function getLTV(): Promise<string> {

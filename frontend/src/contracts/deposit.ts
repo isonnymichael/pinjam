@@ -1,6 +1,6 @@
 import { getContract, prepareContractCall, readContract, sendTransaction, waitForReceipt } from "thirdweb";
 import { useSendTransaction } from "thirdweb/react";
-import { plumeTestnet } from '../lib/chain';
+import { plumeMainnet } from '../lib/chain';
 import { thirdWebClient } from '../lib/client';
 import { parseUnits, formatUnits } from "ethers";
 import { PrepareLiquidityArgs } from '../types/deposit';
@@ -9,7 +9,7 @@ import { tokenContract } from './token';
 export const plumePawnContract = getContract({
     client: thirdWebClient,
     address: import.meta.env.VITE_PLUME_PAWN_CONTRACT,
-    chain: plumeTestnet,
+    chain: plumeMainnet,
 });
 
 export async function getAPR(): Promise<string> {
@@ -53,7 +53,7 @@ export async function ensureAllowanceThenAddLiquidity({
   
       await waitForReceipt({
         client: thirdWebClient,
-        chain: plumeTestnet,
+        chain: plumeMainnet,
         transactionHash,
       });
     }

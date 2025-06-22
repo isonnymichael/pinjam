@@ -1,5 +1,5 @@
 import { getContract, readContract, prepareContractCall, sendTransaction, resolveMethod } from "thirdweb";
-import { plumeTestnet } from '../lib/chain';
+import { plumeMainnet } from '../lib/chain';
 import { thirdWebClient } from '../lib/client';
 import { plumeRwaContract } from './rwa';
 import { Listing } from '../types/marketplace';
@@ -9,7 +9,7 @@ import { tokenContract } from './token';
 export const plumeRwaMarketplaceContract = getContract({
     client: thirdWebClient,
     address: import.meta.env.VITE_RWA_MARKETPLACE_CONTRACT,
-    chain: plumeTestnet,
+    chain: plumeMainnet,
 });
 
 export async function listAsset(

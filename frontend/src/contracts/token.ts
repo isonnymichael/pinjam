@@ -1,12 +1,12 @@
 import { getContract } from "thirdweb";
 import { getBalance } from "thirdweb/extensions/erc20";
-import { plumeTestnet } from '../lib/chain';
+import { plumeMainnet } from '../lib/chain';
 import { thirdWebClient } from '../lib/client';
 
 export const tokenContract = getContract({
     client: thirdWebClient,
     address: import.meta.env.VITE_TOKEN_CONTRACT,
-    chain: plumeTestnet,
+    chain: plumeMainnet,
 });
 
 export const getTokenBalance = async (accountAddress: string): Promise<string> => {
