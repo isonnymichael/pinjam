@@ -3,6 +3,19 @@ import { plumeMainnet } from '../lib/chain';
 import { thirdWebClient } from '../lib/client';
 import { parseUnits, formatUnits } from "ethers";
 
+export interface LoanData {
+  borrower: string;
+  loanId: bigint;
+  collateralToken: string;
+  collateralAmount: bigint;
+  amount: bigint;
+  repayAmount: bigint;
+  feeAmount: bigint;
+  dueDate: bigint;
+  repaid: boolean;
+  overdue: boolean;
+}
+
 export const plumePawnContract = getContract({
     client: thirdWebClient,
     address: import.meta.env.VITE_PLUME_PAWN_CONTRACT,
@@ -93,4 +106,34 @@ export async function ensureAllowanceThenRequestLoan({
   });
 
   return requestLoanTx;
+}
+
+export async function getLoansByUser(address: string): Promise<LoanData[]> {
+  try {
+    const rawLoans = await readContract({
+      contract: plumePawnContract,
+      method: "function getLoansByUser(address user) view returns ((address,uint256,address,uint256,uint256,uint256,uint256,uint256,bool,bool)[])",
+      params: [address],
+    }) as readonly [
+      string, bigint, string, bigint, bigint, bigint, bigint, bigint, boolean, boolean
+    ][];
+
+    const loans: LoanData[] = rawLoans.map((loan) => ({
+      borrower: loan[0],
+      loanId: loan[1],
+      collateralToken: loan[2],
+      collateralAmount: loan[3],
+      amount: loan[4],
+      repayAmount: loan[5],
+      feeAmount: loan[6],
+      dueDate: loan[7],
+      repaid: loan[8],
+      overdue: loan[9],
+    }));
+
+    return loans;
+  } catch (error) {
+    console.error("Failed to get loans by user:", error);
+    return [];
+  }
 }
