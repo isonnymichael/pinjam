@@ -1,10 +1,10 @@
 // lib/chains.ts
 import { defineChain } from 'thirdweb/chains';
 
-export const plumeTestnet = defineChain({
-  id: 98867,
-  name: "Plume Network Testnet",
-  rpc: "https://testnet-rpc.plumenetwork.xyz",
+export const plumeMainnet = defineChain({
+  id: 98866,
+  name: "Plume",
+  rpc: "https://rpc.plume.org",
   nativeCurrency: { 
     name: "PLUME", 
     symbol: "$PLUME", 
@@ -12,10 +12,10 @@ export const plumeTestnet = defineChain({
   },
   blockExplorers: [{
     name: "Plume Explorer",
-    url: "https://testnet-explorer.plumenetwork.xyz"
+    url: "https//explorer.plume.org"
   }],
 });
 
 export const chain = {
-  plumeTestnet
+  plumeMainnet
 };

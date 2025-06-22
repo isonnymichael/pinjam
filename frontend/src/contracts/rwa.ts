@@ -1,12 +1,12 @@
 import { getContract, readContract, prepareContractCall, sendTransaction, resolveMethod } from "thirdweb";
-import { plumeTestnet } from '../lib/chain';
+import { plumeMainnet } from '../lib/chain';
 import { thirdWebClient } from '../lib/client';
 import { convertIpfsToUrl, fetchMetadata  } from '../lib/metadata';
 
 export const plumeRwaContract = getContract({
     client: thirdWebClient,
     address: import.meta.env.VITE_RWA_CONTRACT,
-    chain: plumeTestnet,
+    chain: plumeMainnet,
 });
 
 export async function mintRWA(

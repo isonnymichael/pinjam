@@ -4,7 +4,7 @@ import { ConnectButton, useActiveAccount, useActiveWalletChain, useSwitchActiveW
 import { LoadingOutlined } from '@ant-design/icons';
 import { createWallet } from 'thirdweb/wallets';
 import useAuthStore from '../stores/authStore';
-import { plumeTestnet } from '../lib/chain';
+import { plumeMainnet } from '../lib/chain';
 import { thirdWebClient } from '../lib/client';
 
 const wallets = [
@@ -23,7 +23,7 @@ const WalletConnect = () => {
 
   useEffect(() => {
     if (account) {
-      if (chain?.id === plumeTestnet.id) {
+      if (chain?.id === plumeMainnet.id) {
         login(account.address);
         setAddress(account.address);
       } else {
@@ -42,7 +42,7 @@ const WalletConnect = () => {
       <ConnectButton
         client={thirdWebClient}
         wallets={wallets}
-        chain={plumeTestnet}
+        chain={plumeMainnet}
         connectModal={{ size: 'compact' }}
         detailsModal={{
           hideSwitchWallet: true,
@@ -70,13 +70,13 @@ const WalletConnect = () => {
         detailsButton={{
           render: () => {
 
-            if (chain && chain.id !== plumeTestnet.id) {
+            if (chain && chain.id !== plumeMainnet.id) {
                 return ( <button
                   onClick={async (e) => {
                     try {
                       e.stopPropagation();
                       setIsSwitching(true);
-                      await switchChain(plumeTestnet);
+                      await switchChain(plumeMainnet);
                     } catch (error) {
                       console.error("Failed to switch network:", error);
                     } finally {

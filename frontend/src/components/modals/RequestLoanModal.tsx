@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Form, Input, Button, Select, Row, Col, Divider, Checkbox, Typography, Spin, notification } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
-import { useActiveAccount } from 'thirdweb/react'
+import { useActiveAccount, useSendTransaction } from 'thirdweb/react'
 import { fetchTokens } from '../../lib/api'; 
+import { ensureAllowanceThenRequestLoan } from '../../contracts/loan'
 
 const { Text } = Typography;
 
@@ -13,6 +14,7 @@ interface RWAItem {
   value: number;
   quantity: number;
   unitPrice: number;
+  decimals: any;
 }
 
 interface RequestLoanModalProps {
@@ -37,6 +39,8 @@ export const RequestLoanModal: React.FC<RequestLoanModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const account = useActiveAccount();
+  const { mutate: sendTransaction, isPending } = useSendTransaction();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const interestRates: Record<DurationKey, number> = {
     '30': 6,
@@ -102,6 +106,7 @@ export const RequestLoanModal: React.FC<RequestLoanModalProps> = ({
             quantity: qty,
             unitPrice: parseFloat(price.toFixed(3)), // 5. Use 3 decimal places
             value: parseFloat((qty * price).toFixed(3)),
+            decimals: item.token.decimals,
           };
         });
 
@@ -147,6 +152,7 @@ export const RequestLoanModal: React.FC<RequestLoanModalProps> = ({
           onClick={() => form.submit()}
           className="bg-red-500 hover:bg-red-600 border-none"
           disabled={!agreed || !selectedAsset}
+          loading={isSubmitting || isPending}
         >
           Submit Request
         </Button>,
@@ -155,12 +161,39 @@ export const RequestLoanModal: React.FC<RequestLoanModalProps> = ({
       <Form 
         form={form} 
         layout="vertical" 
-        onFinish={(values) => {
-          onSubmit({ ...values, paymentDetails });
-          form.resetFields();
-          setSelectedAsset(null);
-          setAgreed(false);
-          setDuration('30');
+        onFinish={ async (values) => {
+          setIsSubmitting(true);
+          // check the forms values to send.
+          const asset = rwaList.find(item => item.id === values.asset);
+
+          try {
+            const tx = await ensureAllowanceThenRequestLoan({ tokenAddress: values.asset, amount: values.quantity, loanAmount: values.amount, decimals: asset?.decimals, duration: values.duration, account: account });
+            await sendTransaction(tx as any, {
+              onSuccess: (receipt) => {
+                notification.success({
+                  message: "Loan requested",
+                  description: `Successfully requested ${values.amount} loan: ${receipt.transactionHash}`,
+                });
+
+                onSubmit({ ...values, paymentDetails });
+                form.resetFields();
+                setSelectedAsset(null);
+                setAgreed(false);
+                setDuration('30');
+              },
+              onError: (error) => {
+                notification.error({
+                  message: "Transaction Failed",
+                  description: error.message || "Failed to request loan",
+                });
+              },
+            });
+          } catch (err) {
+            console.error("Failed to request loan:", err);
+          } finally {
+            setIsSubmitting(false);
+          }
+
         }}
       >
         <Row gutter={[16, 16]} wrap>
@@ -171,7 +204,7 @@ export const RequestLoanModal: React.FC<RequestLoanModalProps> = ({
               rules={[{ required: true, message: 'Please select an asset' }]}
             >
               <Select
-                placeholder="Select RWA"
+                placeholder="Select Asset"
                 onChange={(value) => {
                   const asset = rwaList.find(item => item.id === value);
                   setSelectedAsset(asset || null);
@@ -180,7 +213,7 @@ export const RequestLoanModal: React.FC<RequestLoanModalProps> = ({
                 }}
                 optionLabelProp="label"
                 onDropdownVisibleChange={(open) => setDropdownOpen(open)}
-                notFoundContent={loading ? <Spin size="small" /> : 'No RWAs found'}
+                notFoundContent={loading ? <Spin size="small" /> : 'No Assets found'}
               >
                 {rwaList.map(rwa => (
                   <Select.Option 
@@ -234,7 +267,7 @@ export const RequestLoanModal: React.FC<RequestLoanModalProps> = ({
                     const qty = parseFloat(e.target.value || '0');
                     setQuantity(qty);
                     const loan = qty * (selectedAsset?.unitPrice || 0) * 0.7;
-                    form.setFieldsValue({ amount: loan.toFixed(2) });
+                    form.setFieldsValue({ amount: loan });
                   }}
                   disabled={!selectedAsset}
                 />
@@ -280,16 +313,16 @@ export const RequestLoanModal: React.FC<RequestLoanModalProps> = ({
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span>Principal (70% of value):</span>
-                    <span>${paymentDetails.principal.toLocaleString()}</span>
+                    <span>${paymentDetails.principal}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Interest ({paymentDetails.rate}%):</span>
-                    <span>${paymentDetails.interest.toLocaleString()}</span>
+                    <span>${paymentDetails.interest}</span>
                   </div>
                   <Divider className="my-2" />
                   <div className="flex justify-between font-semibold">
                     <span>Total Repayment (pUSD):</span>
-                    <span>${paymentDetails.total.toLocaleString()}</span>
+                    <span>${paymentDetails.total}</span>
                   </div>
                 </div>
               ) : (
