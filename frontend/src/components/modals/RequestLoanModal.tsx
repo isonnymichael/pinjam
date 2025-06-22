@@ -4,6 +4,7 @@ import { InfoCircleOutlined } from '@ant-design/icons';
 import { useActiveAccount, useSendTransaction } from 'thirdweb/react'
 import { fetchTokens } from '../../lib/api'; 
 import { ensureAllowanceThenRequestLoan } from '../../contracts/loan'
+import useAuthStore from '../../stores/authStore';
 
 const { Text } = Typography;
 
@@ -41,6 +42,7 @@ export const RequestLoanModal: React.FC<RequestLoanModalProps> = ({
   const account = useActiveAccount();
   const { mutate: sendTransaction, isPending } = useSendTransaction();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { balance, setBalance } = useAuthStore();
 
   const interestRates: Record<DurationKey, number> = {
     '30': 6,
@@ -180,6 +182,8 @@ export const RequestLoanModal: React.FC<RequestLoanModalProps> = ({
                 setSelectedAsset(null);
                 setAgreed(false);
                 setDuration('30');
+
+                setBalance(String(parseFloat(balance ?? '0') + parseFloat(values.amount)));
               },
               onError: (error) => {
                 notification.error({

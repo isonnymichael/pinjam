@@ -1,24 +1,150 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Table, Tag } from "antd";
 import type { ColumnsType } from 'antd/es/table';
-import { LoanType, LoanInterfaceProps } from '../../types/loan';
+import { parseUnits, formatUnits } from "ethers";
+import { useActiveAccount } from 'thirdweb/react';
+import { getLoansByUser  } from "../../contracts/loan";
+import useAuthStore from '../../stores/authStore';
+import { fetchTokens } from '../../lib/api'; 
 
-export const LoanInterface: React.FC<LoanInterfaceProps> = ({ loans }) => {
+interface RWAItem {
+  id: string;
+  name: string;
+  image: string;
+  value: number;
+  quantity: number;
+  unitPrice: number;
+  decimals: any;
+}
+
+interface LoanType {
+  key: string;
+  asset: string;
+  image: string;
+  loanAmount: string;
+  repayAmount: string;
+  dueDate: string;
+  status: string;
+}
+
+export const LoanInterface: React.FC = () => {
+  const account = useActiveAccount();
+  const address = account?.address;
+  const { balance, setBalance } = useAuthStore();
+  const [loans, setLoans] = useState<LoanType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [rwaList, setRwaList] = useState<RWAItem[]>([]);
+  
+
+  useEffect(() => {
+    const _fetchTokensAndLoans = async () => {
+      if (!address) return;
+
+      setLoading(true);
+
+      try {
+        // 1. Fetch token list (RWA)
+        const data = await fetchTokens(address);
+        const items = data.walletTokenBalanceInfoArr || [];
+
+        const formattedTokens = items
+          .filter((item: any) => {
+            if (item.token?.address === '0x0000000000000000000000000000000000000000') return false;
+            if (!item.token?.priceUSD) return false;
+            if (!item.holdings?.tokenBalance) return false;
+            if (item.token?.tokenType !== 'erc20') return false;
+            return true;
+          })
+          .map((item: any, idx: number) => {
+            const qty = parseFloat(item.holdings.tokenBalance);
+            const price = parseFloat(item.token.priceUSD);
+
+            const image = item.token.imageSmallUrl?.startsWith('https')
+              ? item.token.imageSmallUrl
+              : 'https://placehold.co/40x40?text=RWA';
+
+            return {
+              id: item.token.address || `${idx}`,
+              name: item.token.symbol,
+              image: image,
+              quantity: qty,
+              unitPrice: parseFloat(price.toFixed(3)),
+              value: parseFloat((qty * price).toFixed(3)),
+              decimals: item.token.decimals,
+            };
+          });
+
+        setRwaList(formattedTokens);
+
+        // 2. Fetch loans after token list is ready
+        const rawLoans = await getLoansByUser(address);
+
+        const mappedLoans = rawLoans.map((loan) => {
+          const token = formattedTokens.find(
+            (t: any) => t.id.toLowerCase() === loan.collateralToken.toLowerCase()
+          );
+
+          const symbol = token?.name || loan.collateralToken.slice(0, 6) + '...';
+          const decimals = token?.decimals || 18;
+
+          const formattedCollateralAmount = formatUnits(loan.collateralAmount.toString(), parseInt(decimals));
+          const formattedLoanAmount = formatUnits(loan.amount, 6);
+          const formattedRepayAmount = formatUnits(loan.repayAmount, 6);
+          const formattedDate = new Date(Number(loan.dueDate) * 1000).toLocaleDateString();
+
+          let status = "Active";
+          if (loan.repaid) {
+            status = "Repaid";
+          } else if (loan.overdue) {
+            status = "Overdue";
+          }
+
+          const image = token?.image || 'https://placehold.co/40x40?text=RWA';
+
+          return {
+            key: loan.loanId.toString(),
+            asset: symbol,
+            image,
+            collateralAmount: `${formattedCollateralAmount}`,
+            loanAmount: `${formattedLoanAmount} $pUSD`,
+            repayAmount: `${formattedRepayAmount} $pUSD`,
+            dueDate: formattedDate,
+            status,
+          };
+        });
+
+        setLoans(mappedLoans);
+      } catch (err) {
+        console.error("Error fetching tokens or loans:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    _fetchTokensAndLoans();
+  }, [address, balance]);
+
   const activeLoanColumns: ColumnsType<LoanType> = [
     {
       title: 'Asset',
       dataIndex: 'asset',
       key: 'asset',
+      render: (_, record) => (
+        <div className="flex items-center gap-2">
+          <img src={record.image} alt={record.asset} className="w-6 h-6 rounded-full" />
+          <span>{record.asset}</span>
+        </div>
+      ),
+    },
+    {
+      title: 'Collateral Amount',
+      dataIndex: 'collateralAmount',
+      key: 'collateralAmount',
     },
     {
       title: 'Loan Amount',
       dataIndex: 'loanAmount',
       key: 'loanAmount',
-    },
-    {
-      title: 'Interest',
-      dataIndex: 'interest',
-      key: 'interest',
     },
     {
       title: 'Due Date',
@@ -42,6 +168,17 @@ export const LoanInterface: React.FC<LoanInterfaceProps> = ({ loans }) => {
       title: 'Asset',
       dataIndex: 'asset',
       key: 'asset',
+      render: (_, record) => (
+        <div className="flex items-center gap-2">
+          <img src={record.image} alt={record.asset} className="w-6 h-6 rounded-full" />
+          <span>{record.asset}</span>
+        </div>
+      ),
+    },
+    {
+      title: 'Collateral Amount',
+      dataIndex: 'collateralAmount',
+      key: 'collateralAmount',
     },
     {
       title: 'Loan Amount',
@@ -89,7 +226,7 @@ export const LoanInterface: React.FC<LoanInterfaceProps> = ({ loans }) => {
       )}
 
       <div className="mt-12 bg-white p-4">
-        <h2 className="text-2xl font-semibold mb-6 text-gray-800">Loan History</h2>
+        <h2 className="text-2xl font-semibold mb-6 text-gray-800">Loan Overdue History</h2>
         <Table
             columns={historyColumns}
             dataSource={loans.filter(loan => loan.status !== "Active")}
@@ -98,7 +235,7 @@ export const LoanInterface: React.FC<LoanInterfaceProps> = ({ loans }) => {
             locale={{
                 emptyText: (
                 <div className="text-center py-8 bg-gray-50 rounded-lg">
-                    <p className="text-gray-500">No loan history available</p>
+                    <p className="text-gray-500">No loan overdue history</p>
                 </div>
                 )
             }}
@@ -122,13 +259,15 @@ const RepaySection: React.FC<{ loans: LoanType[] }> = ({ loans }) => (
 const LoanRepayCard: React.FC<{ loan: LoanType }> = ({ loan }) => (
   <div className="bg-white p-4 rounded-lg shadow-sm">
     <div className="flex justify-between items-center mb-2">
-      <h4 className="font-medium">{loan.asset}</h4>
+      <div className="flex items-center gap-2">
+        <img src={loan.image} alt={loan.asset} className="w-6 h-6 rounded-full" />
+        <h4 className="font-medium">{loan.asset}</h4>
+      </div>
       <span className="text-sm text-gray-500">Due: {loan.dueDate}</span>
     </div>
     <div className="flex justify-between items-center">
       <div>
-        <p className="text-sm text-gray-600">Amount: {loan.loanAmount}</p>
-        <p className="text-sm text-gray-600">Interest: {loan.interest}</p>
+        <p className="text-sm text-gray-600">Amount: {loan.repayAmount}</p>
       </div>
       <button className="cursor-pointer text-red-500 hover:text-red-700 font-medium py-2 px-4 border border-red-300 rounded-full transition-colors">
         Repay Now
