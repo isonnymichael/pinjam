@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Form, Input, Button, Select, Row, Col, Divider, Checkbox, Typography, Spin } from 'antd';
+import { Modal, Form, Input, Button, Select, Row, Col, Divider, Checkbox, Typography, Spin, notification } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
+import { useActiveAccount } from 'thirdweb/react'
+import { fetchTokens } from '../../lib/api'; 
 
 const { Text } = Typography;
 
@@ -9,6 +11,8 @@ interface RWAItem {
   name: string;
   image: string;
   value: number;
+  quantity: number;
+  unitPrice: number;
 }
 
 interface RequestLoanModalProps {
@@ -27,10 +31,12 @@ export const RequestLoanModal: React.FC<RequestLoanModalProps> = ({
   const [form] = Form.useForm();
   const [selectedAsset, setSelectedAsset] = useState<RWAItem | null>(null);
   const [duration, setDuration] = useState<DurationKey>('30');
+  const [quantity, setQuantity] = useState(0);
   const [agreed, setAgreed] = useState(false);
   const [rwaList, setRwaList] = useState<RWAItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const account = useActiveAccount();
 
   const interestRates: Record<DurationKey, number> = {
     '30': 6,
@@ -43,45 +49,78 @@ export const RequestLoanModal: React.FC<RequestLoanModalProps> = ({
       form.resetFields();
       setSelectedAsset(null);
       setAgreed(false);
+      setQuantity(0);
       setDuration('30');
     }
   }, [visible]);
 
   useEffect(() => {
     if (dropdownOpen && rwaList.length === 0) {
-      setLoading(true);
-      setTimeout(() => {
-        setRwaList([
-          {
-            id: '1',
-            name: 'Gold Necklace NFT',
-            image: 'https://placehold.co/40x40?text=GOLD',
-            value: 5000
-          },
-          {
-            id: '2',
-            name: 'Diamond Ring NFT',
-            image: 'https://placehold.co/40x40?text=DIAMOND',
-            value: 8000
-          },
-          {
-            id: '3',
-            name: 'Luxury Watch NFT',
-            image: 'https://placehold.co/40x40?text=WATCH',
-            value: 12000
-          }
-        ]);
-        setLoading(false);
-      }, 800);
+      fetchData();
     }
   }, [dropdownOpen]);
 
+  const fetchData = async () => {
+    try {
+      if (!account?.address) {
+        notification.success({
+          message: "Wallet not connected",
+          description: `Cannot fetch NFTs.`,
+        });
+
+        return;
+      }
+
+      setLoading(true);
+      const data = await fetchTokens(account?.address);
+      const items = data.walletTokenBalanceInfoArr || [];
+      const formatted = items
+        .filter((item: any) => {
+          if (item.token?.address === '0x0000000000000000000000000000000000000000') return false;
+
+          if (!item.token?.priceUSD) return false;
+
+          if (!item.holdings?.tokenBalance) return false;
+
+          if(item.token?.tokenType !== 'erc20') return false;
+
+          return true;
+        })
+        .map((item: any, idx: number) => {
+          const qty = parseFloat(item.holdings.tokenBalance);
+          const price = parseFloat(item.token.priceUSD);
+          
+          // 2. Use placeholder if image URL is not https
+          const image = item.token.imageSmallUrl?.startsWith('https')
+            ? item.token.imageSmallUrl
+            : 'https://placehold.co/40x40?text=RWA';
+
+          return {
+            id: item.token.address || `${idx}`,
+            name: item.token.name,
+            image: image,
+            quantity: qty,
+            unitPrice: parseFloat(price.toFixed(3)), // 5. Use 3 decimal places
+            value: parseFloat((qty * price).toFixed(3)),
+          };
+        });
+
+      setRwaList(formatted);
+    } catch (err) {
+      console.error('Error fetching NFTs:', err);
+      setRwaList([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const calculatePayment = () => {
-    if (!selectedAsset) return null;
-    const ltv = 0.7;
-    const loanAmount = selectedAsset.value * ltv;
+    if (!selectedAsset || !quantity || quantity <= 0) return null;
+    
+    const loanAmount = quantity * selectedAsset.unitPrice * 0.7;
     const interestRate = interestRates[duration];
     const interestAmount = (loanAmount * interestRate) / 100;
+    
     return {
       principal: loanAmount,
       interest: interestAmount,
@@ -136,7 +175,8 @@ export const RequestLoanModal: React.FC<RequestLoanModalProps> = ({
                 onChange={(value) => {
                   const asset = rwaList.find(item => item.id === value);
                   setSelectedAsset(asset || null);
-                  form.setFieldsValue({ amount: asset ? asset.value * 0.7 : 0 });
+                  form.setFieldsValue({ duration: '30' });
+                  form.setFieldsValue({ quantity: asset?.quantity });
                 }}
                 optionLabelProp="label"
                 onDropdownVisibleChange={(open) => setDropdownOpen(open)}
@@ -146,7 +186,17 @@ export const RequestLoanModal: React.FC<RequestLoanModalProps> = ({
                   <Select.Option 
                     key={rwa.id} 
                     value={rwa.id}
-                    label={rwa.name}
+                    label={
+                      <div className="flex items-center">
+                        <img 
+                          src={rwa.image} 
+                          alt={rwa.name} 
+                          className="w-5 h-5 mr-2 rounded"
+                        />
+                        {rwa.name} (${rwa.unitPrice})
+                      </div>
+                    }
+                    disabled={rwa.value === 0}
                   >
                     <div className="flex items-center">
                       <img 
@@ -154,11 +204,44 @@ export const RequestLoanModal: React.FC<RequestLoanModalProps> = ({
                         alt={rwa.name} 
                         className="w-6 h-6 mr-2 rounded"
                       />
-                      {rwa.name} (${rwa.value})
+                      {rwa.name} ({rwa.unitPrice}$)
                     </div>
                   </Select.Option>
                 ))}
               </Select>
+            </Form.Item>
+
+            <Form.Item
+              name="quantity"
+              label="Amount"
+              rules={[
+                {
+                  validator: (_, value) => {
+                    if (!selectedAsset) return Promise.reject('Select asset first');
+                    if (value > selectedAsset.quantity) return Promise.reject(`Max is ${selectedAsset.quantity}`);
+                    if (value <= 0) return Promise.reject('Must be at least 1');
+                    return Promise.resolve();
+                  }
+                }
+              ]}
+            >
+              <div className="space-y-1">
+                <Input
+                  type="number"
+                  max={selectedAsset?.quantity || 1}
+                  placeholder="Enter token amount"
+                  onChange={(e) => {
+                    const qty = parseFloat(e.target.value || '0');
+                    setQuantity(qty);
+                    const loan = qty * (selectedAsset?.unitPrice || 0) * 0.7;
+                    form.setFieldsValue({ amount: loan.toFixed(2) });
+                  }}
+                  disabled={!selectedAsset}
+                />
+                <Text type="secondary" className="text-xs block text-right">
+                  Balance: {selectedAsset?.quantity || 0}
+                </Text>
+              </div>
             </Form.Item>
 
             <Form.Item

@@ -149,7 +149,7 @@ const RWA: React.FC = () => {
         return e?.fileList
     }
 
-    const fetchNFTs = async () => {
+    const fetchTokens = async () => {
         try {
           setLoading(true);
           const fetchedNFTs = await getNFTs(account?.address); 
@@ -268,16 +268,16 @@ const RWA: React.FC = () => {
                             
                             <Form.Item
                                 name="tokenId"
-                                label="Select Your RWA NFT"
-                                rules={[{ required: true, message: "Please select an NFT" }]}
+                                label="Select Your RWA Asset"
+                                rules={[{ required: true, message: "Please select an Asset" }]}
                             >
                                 <Select
-                                    placeholder="Select NFT to list"
+                                    placeholder="Select Asset to list"
                                     onDropdownVisibleChange={async (open) => {
                                         if (open ) {
                                             setNfts([]);
 
-                                            await fetchNFTs();
+                                            await fetchTokens();
                                         }
                                     }}
                                     notFoundContent={loading ? <Spin size="small" /> : 'No RWAs found'}
