@@ -2,6 +2,7 @@ import { getContract, prepareContractCall, readContract, sendTransaction, waitFo
 import { plumeMainnet } from '../lib/chain';
 import { thirdWebClient } from '../lib/client';
 import { parseUnits, formatUnits } from "ethers";
+import { tokenContract as _tokenContract } from './token';
 
 export interface LoanData {
   borrower: string;
@@ -145,16 +146,17 @@ export async function getLoansByUser(address: string): Promise<LoanData[]> {
 }
 
 export async function repayLoan({ loanId, repayAmount, account }: RepayLoanParams) {
+
   // 1. Cek allowance
   const allowance = await readContract({
-    contract: import.meta.env.VITE_TOKEN_CONTRACT,
+    contract: _tokenContract ,
     method: "function allowance(address owner, address spender) view returns (uint256)",
     params: [account.address, import.meta.env.VITE_PLUME_PAWN_CONTRACT],
   }) as bigint;
 
   if (allowance < repayAmount) {
     const approveTx = await prepareContractCall({
-      contract: import.meta.env.VITE_TOKEN_CONTRACT,
+      contract: _tokenContract,
       method: "function approve(address spender, uint256 amount)",
       params: [import.meta.env.VITE_PLUME_PAWN_CONTRACT, repayAmount],
     });

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Table, Tag } from "antd";
+import { Table, Tag, Button, notification } from "antd";
 import type { ColumnsType } from 'antd/es/table';
 import { parseUnits, formatUnits } from "ethers";
-import { useActiveAccount } from 'thirdweb/react';
-import { getLoansByUser  } from "../../contracts/loan";
+import { useActiveAccount, useSendTransaction } from 'thirdweb/react';
+import { getLoansByUser, repayLoan } from "../../contracts/loan";
 import useAuthStore from '../../stores/authStore';
 import { fetchTokens } from '../../lib/api'; 
 
@@ -18,6 +18,7 @@ interface RWAItem {
 }
 
 interface LoanType {
+  loanId: bigint;
   key: string;
   asset: string;
   image: string;
@@ -25,6 +26,12 @@ interface LoanType {
   repayAmount: string;
   dueDate: string;
   status: string;
+}
+
+interface RepayLoanParams {
+  loanId: bigint;
+  repayAmount: bigint;
+  account: any;
 }
 
 export const LoanInterface: React.FC = () => {
@@ -35,7 +42,6 @@ export const LoanInterface: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [rwaList, setRwaList] = useState<RWAItem[]>([]);
   
-
   useEffect(() => {
     const _fetchTokensAndLoans = async () => {
       if (!address) return;
@@ -102,6 +108,7 @@ export const LoanInterface: React.FC = () => {
           const image = token?.image || 'https://placehold.co/40x40?text=RWA';
 
           return {
+            loanId: loan.loanId,
             key: loan.loanId.toString(),
             asset: symbol,
             image,
@@ -222,7 +229,10 @@ export const LoanInterface: React.FC = () => {
       </div>
 
       {loans.filter(loan => loan.status === "Active").length > 0 && (
-        <RepaySection loans={loans.filter(loan => loan.status === "Active")} />
+        <RepaySection
+          account={account}
+          loans={loans.filter(loan => loan.status === "Active")}
+        />
       )}
 
       <div className="mt-12 bg-white p-4">
@@ -245,33 +255,95 @@ export const LoanInterface: React.FC = () => {
   );
 };
 
-const RepaySection: React.FC<{ loans: LoanType[] }> = ({ loans }) => (
+const RepaySection: React.FC<{
+  account: any;
+  loans: LoanType[];
+}> = ({ account, loans }) => (
   <div className="bg-red-50 p-6 rounded-lg border border-red-100">
     <h3 className="text-xl font-semibold mb-4 text-red-500">Loan Repayment</h3>
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       {loans.map((loan) => (
-        <LoanRepayCard key={loan.key} loan={loan} />
+        <LoanRepayCard
+          key={loan.key}
+          loan={loan}
+          account={account}
+        />
       ))}
     </div>
   </div>
 );
 
-const LoanRepayCard: React.FC<{ loan: LoanType }> = ({ loan }) => (
-  <div className="bg-white p-4 rounded-lg shadow-sm">
-    <div className="flex justify-between items-center mb-2">
-      <div className="flex items-center gap-2">
-        <img src={loan.image} alt={loan.asset} className="w-6 h-6 rounded-full" />
-        <h4 className="font-medium">{loan.asset}</h4>
+const LoanRepayCard: React.FC<{
+  account: any;
+  loan: LoanType;
+}> = ({ account, loan}) => {
+  const [loading, setLoading] = useState(false);
+  const { balance, setBalance } = useAuthStore();
+  const { mutate: sendTransaction, isPending } = useSendTransaction();
+
+  return (
+    <div className="bg-white p-4 rounded-lg shadow-sm">
+      <div className="flex justify-between items-center mb-2">
+        <div className="flex items-center gap-2">
+          <img src={loan.image} alt={loan.asset} className="w-6 h-6 rounded-full" />
+          <h4 className="font-medium">{loan.asset}</h4>
+        </div>
+        <span className="text-sm text-gray-500">Due: {loan.dueDate}</span>
       </div>
-      <span className="text-sm text-gray-500">Due: {loan.dueDate}</span>
-    </div>
-    <div className="flex justify-between items-center">
-      <div>
-        <p className="text-sm text-gray-600">Amount: {loan.repayAmount}</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <p className="text-sm text-gray-600">Amount: {loan.repayAmount}</p>
+        </div>
+
+        <Button
+          type="primary"
+          danger
+          loading={loading || isPending}
+          onClick={async () => {
+            setLoading(true);
+            try {
+              const parsedAmount = parseUnits(loan.repayAmount.replace(" $pUSD", ""), 6);
+              const tx = await repayLoan({
+                loanId: BigInt(loan.loanId),
+                repayAmount: parsedAmount,
+                account,
+              });
+
+              await sendTransaction(tx as any, {
+                onSuccess: (receipt: any) => {
+
+                  notification.success({
+                    message: "Loan repaid",
+                    description: `Transaction: ${receipt.transactionHash}`,
+                  });
+
+                  setBalance(String(Number(balance) - Number(formatUnits(parsedAmount, 6))));
+                },
+                onError: (err: any) => {
+
+                  notification.error({
+                    message: "Repayment failed",
+                    description: err.message || "Failed to repay loan",
+                  });
+
+                },
+              });
+            } catch (err: any) {
+              console.error("Repayment error:", err);
+
+              notification.error({
+                message: "Error",
+                description: err.message || "Something went wrong",
+              });
+
+            } finally {
+              setLoading(false);
+            }
+          }}
+        >
+          Repay Now
+        </Button>
       </div>
-      <button className="cursor-pointer text-red-500 hover:text-red-700 font-medium py-2 px-4 border border-red-300 rounded-full transition-colors">
-        Repay Now
-      </button>
     </div>
-  </div>
-);
+  );
+};
