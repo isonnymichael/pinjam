@@ -16,6 +16,12 @@ export interface LoanData {
   overdue: boolean;
 }
 
+interface RepayLoanParams {
+  loanId: bigint;
+  repayAmount: bigint;
+  account: any;
+}
+
 export const plumePawnContract = getContract({
     client: thirdWebClient,
     address: import.meta.env.VITE_PLUME_PAWN_CONTRACT,
@@ -136,4 +142,41 @@ export async function getLoansByUser(address: string): Promise<LoanData[]> {
     console.error("Failed to get loans by user:", error);
     return [];
   }
+}
+
+export async function repayLoan({ loanId, repayAmount, account }: RepayLoanParams) {
+  // 1. Cek allowance
+  const allowance = await readContract({
+    contract: import.meta.env.VITE_TOKEN_CONTRACT,
+    method: "function allowance(address owner, address spender) view returns (uint256)",
+    params: [account.address, import.meta.env.VITE_PLUME_PAWN_CONTRACT],
+  }) as bigint;
+
+  if (allowance < repayAmount) {
+    const approveTx = await prepareContractCall({
+      contract: import.meta.env.VITE_TOKEN_CONTRACT,
+      method: "function approve(address spender, uint256 amount)",
+      params: [import.meta.env.VITE_PLUME_PAWN_CONTRACT, repayAmount],
+    });
+
+    const { transactionHash } = await sendTransaction({
+      account,
+      transaction: approveTx,
+    });
+
+    await waitForReceipt({
+      client: thirdWebClient,
+      chain: plumeMainnet,
+      transactionHash,
+    });
+  }
+
+  // 2. Kirim repayLoan
+  const repayTx = await prepareContractCall({
+    contract: plumePawnContract,
+    method: "function repayLoan(uint256 loanId)",
+    params: [loanId],
+  });
+
+  return repayTx;
 }
