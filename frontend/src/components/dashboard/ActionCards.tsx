@@ -45,7 +45,7 @@ export const ActionCards = () => {
           <div className="flex-grow">
             <h2 className="text-2xl font-bold text-red-500 mb-4">Need Liquidity?</h2>
             <p className="text-gray-600 mb-6">
-              Pawn your RWA NFTs to get instant loans while maintaining ownership.
+              Pawn your RWA Assets to get instant loans while maintaining ownership.
             </p>
             <div className="mb-4">
               <p className="text-sm text-gray-500">Current LTV</p>

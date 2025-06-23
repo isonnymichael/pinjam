@@ -41,7 +41,16 @@ export const LiquidityInterface: React.FC = () => {
       title: 'Amount Supplied',
       dataIndex: 'amount',
       key: 'amount',
-      render: (amount) => `${amount} $pUSD`,
+      render: (amount) => (
+        <div className="flex items-center gap-2">
+          <img
+            src="https://token-media.defined.fi/98866_0xdddd73f5df1f0dc31373357beac77545dc5a6f3f_large_08f02aee-0ba8-42c9-a8ab-d90457159a7b.png"
+            alt="$pUSD"
+            className="w-6 h-6"
+          />
+          <span>{amount} $pUSD</span>
+        </div>
+      ),
     },
     {
       title: 'APR',
