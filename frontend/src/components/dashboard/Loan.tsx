@@ -201,12 +201,7 @@ export const LoanInterface: React.FC = () => {
           {status}
         </Tag>
       ),
-    },
-    {
-      title: 'Date',
-      dataIndex: 'dueDate',
-      key: 'dueDate',
-    },
+    }
   ];
 
   return (
@@ -236,7 +231,7 @@ export const LoanInterface: React.FC = () => {
       )}
 
       <div className="mt-12 bg-white p-4">
-        <h2 className="text-2xl font-semibold mb-6 text-gray-800">Loan Overdue History</h2>
+        <h2 className="text-2xl font-semibold mb-6 text-gray-800">Loan History</h2>
         <Table
             columns={historyColumns}
             dataSource={loans.filter(loan => loan.status !== "Active")}
@@ -245,7 +240,7 @@ export const LoanInterface: React.FC = () => {
             locale={{
                 emptyText: (
                 <div className="text-center py-8 bg-gray-50 rounded-lg">
-                    <p className="text-gray-500">No loan overdue history</p>
+                    <p className="text-gray-500">No loan history</p>
                 </div>
                 )
             }}
@@ -296,9 +291,8 @@ const LoanRepayCard: React.FC<{
         </div>
 
         <Button
-          type="primary"
-          danger
           loading={loading || isPending}
+          className="!rounded-full !border !text-red-400 hover:!text-red-600 !border-red-400"
           onClick={async () => {
             setLoading(true);
             try {
